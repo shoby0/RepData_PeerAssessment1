@@ -8,18 +8,86 @@ output:
 
 ## Loading and preprocessing the data
 
+##### Loading the data
+```{r, echo=TRUE}
+temp <- tempfile()
+download.file("https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2Factivity.zip",temp)
+activity <- read.csv(unz(temp, "activity.csv"), header = TRUE,colClasses = c("numeric", "Date", "numeric"))
+unlink(temp)
+head(activity)
+```
 
+##### Removing NAs
+```{r, echo=TRUE}
+NONA <- na.omit(activity)
+head(NONA)
+```
 
 ## What is mean total number of steps taken per day?
 
+```{r, echo=TRUE}
+library(ggplot2)
+activity_per_day <- aggregate(steps~date,NONA, sum)
+head(activity_per_day)
+```
 
+```{r, echo=TRUE}
+ggplot(data = activity_per_day) +
+    geom_histogram(aes(steps),binwidth = 500, fill = 'pink', col = 'black') +
+    ggtitle("Total Number of Steps Taken Each Day")
+```
 
 ## What is the average daily activity pattern?
 
+```{r, echo=TRUE}
+summary(activity_per_day)
+```
 
+```{r, echo=TRUE}
+activity_per_interval <- aggregate(steps~interval, NONA, mean)
+ggplot(data = activity_per_interval) + 
+  geom_line(aes(interval,steps)) +
+  ggtitle("Average Number of Steps Taken per Interval")
+```
+
+```{r, echo=TRUE}
+activity_per_interval[which.max(activity_per_interval$steps),]
+```
 
 ## Imputing missing values
 
+```{r, echo=TRUE}
+colSums(is.na(activity))
+```
 
+```{r, echo=TRUE}
+activity_filled <- activity
+activity_filled$steps <- ifelse(is.na(activity_filled$steps) == TRUE, activity_per_interval$steps[activity_per_interval$interval %in% activity_filled$interval], activity_filled$steps)
+head(activity_filled)
+```
+
+```{r, echo=TRUE}
+activity_filled2 <- aggregate(steps~date, activity_filled,sum)
+ggplot(data = activity_filled2) +
+  geom_histogram(aes(steps), fill = 'pink', col = 'black') +
+  ggtitle("Total Number of Steps Taken Each Day - Missing Values Added")
+```
+
+```{r, echo=TRUE}
+summary(activity_filled2)
+```
 
 ## Are there differences in activity patterns between weekdays and weekends?
+
+```{r, echo=TRUE}
+activity_filled$weekdayType <- ifelse(weekdays(activity_filled$date) %in% c("Saturday", "Sunday"), 
+                              "weekend", "weekday")
+
+library(tidyverse)
+activity_filled3 <- activity_filled %>% group_by(interval, weekdayType) %>% summarise(meanSteps = mean(steps))
+head(activity_filled3)
+```
+
+```{r, echo=TRUE}
+ggplot(data = activity_filled3) + geom_line(aes(interval,meanSteps)) + facet_grid(weekdayType~.)
+```
